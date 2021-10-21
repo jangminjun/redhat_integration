@@ -1,0 +1,131 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+labels:
+    template: pipeline
+metadata:
+  annotations:
+    description: RHTE CICD Deployment Pipeline
+  name: pipeline
+parameters:
+- name: GIT_REPO
+  value: https://github.com/rh-integration/IntegrationApp-Automation
+  required: true
+- name: GIT_BRANCH
+  value: master
+  required: true
+- name: DEV_PROJECT 
+  required: true 
+- name: TEST_PROJECT 
+  required: true
+- name: PROD_PROJECT 
+  required: true
+- name: MYSQL_USER 
+  value: dbuser 
+  required: false
+- name: MYSQL_PWD
+  value: password 
+  required: false
+- name: IMAGE_REGISTRY
+  value: image-registry.openshift-image-registry.svc:5000
+  required: true
+- name: IMAGE_NAMESPACE 
+  required: true
+- name: PRIVATE_BASE_URL
+  value:
+ # required: true
+- name: PRODUCTION_PUBLIC_BASE_URL
+  value:
+  #required: true
+- name: STAGING_PUBLIC_BASE_URL
+  value:
+  #required: true
+- name: PUBLIC_PRODUCTION_WILDCARD_DOMAIN
+  value:
+- name: PUBLIC_STAGING_WILDCARD_DOMAIN
+  value:
+- name: API_BASE_SYSTEM_NAME
+  value: 3scalefuse
+  required: true
+- name: SECRET_NAME
+  value: 3scale-toolbox
+  required: true
+- name: TARGET_INSTANCE
+  value: instance_a
+  required: true
+- name: DEVELOPER_ACCOUNT_ID
+  value: Developer
+  required: true
+- name: DISABLE_TLS_VALIDATION
+  value: "yes"
+- name: PLAN_YAML_FILE_PATH
+  value: https://raw.githubusercontent.com/rh-integration/IntegrationApp-Automation/master/cicd-3scale/3scaletoolbox/plan.yaml
+- name: TOOLBOX_IMAGE_REGISTRY
+  value: image-registry.openshift-image-registry.svc:5000/rh-dev/toolbox:v0.12.4
+
+objects:
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    name: aggregated-pipeline
+    labels:
+      app: aggregated-pipeline
+  spec:
+    output: null
+    postCommit: null
+    resources: null
+    runPolicy: Serial
+    source:
+      type: None
+    source:
+      git:
+        uri: ${GIT_REPO}
+        ref: ${GIT_BRANCH}
+    strategy:
+      type: JenkinsPipeline
+      jenkinsPipelineStrategy:
+        jenkinsfilePath: Jenkinsfile
+        env:
+        - name: GIT_BRANCH
+          value: ${GIT_BRANCH}
+        - name: GIT_REPO
+          value: ${GIT_REPO}
+        - name: DEV_PROJECT 
+          value: ${DEV_PROJECT}
+        - name: TEST_PROJECT 
+          value: ${TEST_PROJECT}
+        - name: PROD_PROJECT 
+          value: ${PROD_PROJECT}
+        - name: MYSQL_USER 
+          value: ${MYSQL_USER}
+        - name: MYSQL_PWD 
+          value: ${MYSQL_PWD}
+        - name: IMAGE_NAMESPACE 
+          value: ${IMAGE_NAMESPACE}
+        - name: IMAGE_REGISTRY 
+          value: ${IMAGE_REGISTRY}
+        - name: PRIVATE_BASE_URL 
+          value: ${PRIVATE_BASE_URL}
+        - name: PRODUCTION_PUBLIC_BASE_URL
+          value: ${PRODUCTION_PUBLIC_BASE_URL}
+        - name: STAGING_PUBLIC_BASE_URL
+          value: ${STAGING_PUBLIC_BASE_URL}
+        - name: PUBLIC_PRODUCTION_WILDCARD_DOMAIN
+          value: ${PUBLIC_PRODUCTION_WILDCARD_DOMAIN}
+        - name: PUBLIC_STAGING_WILDCARD_DOMAIN
+          value: ${PUBLIC_STAGING_WILDCARD_DOMAIN}
+        - name: API_BASE_SYSTEM_NAME
+          value: ${API_BASE_SYSTEM_NAME}
+        - name: SECRET_NAME
+          value: ${SECRET_NAME}
+        - name: TARGET_INSTANCE
+          value: ${TARGET_INSTANCE}
+        - name: DEVELOPER_ACCOUNT_ID
+          value: ${DEVELOPER_ACCOUNT_ID}
+        - name: DISABLE_TLS_VALIDATION
+          value: ${DISABLE_TLS_VALIDATION}
+        - name: PLAN_YAML_FILE_PATH
+          value: ${PLAN_YAML_FILE_PATH}
+        - name: TOOLBOX_IMAGE_REGISTRY
+          value: ${TOOLBOX_IMAGE_REGISTRY}
+
+       

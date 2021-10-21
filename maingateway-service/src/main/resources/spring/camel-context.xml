@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd        http://camel.apache.org/schema/spring       http://camel.apache.org/schema/spring/camel-spring.xsd">
+    <bean
+        class="org.apache.camel.component.hystrix.metrics.servlet.HystrixEventStreamServlet"
+        id="hystrixEventStreamServlet" scope="singleton"/>
+    <bean
+        class="org.apache.camel.component.servlet.CamelHttpTransportServlet"
+        id="camelHttpTransportServlet" scope="singleton"/>
+    <bean
+        class="org.springframework.boot.web.servlet.ServletRegistrationBean" id="servlet">
+        <property name="name" value="CamelServlet"/>
+        <property name="servlet" ref="camelHttpTransportServlet"/>
+        <property name="urlMappings" value="/cicd/*"/>
+    </bean>
+    <bean
+        class="org.springframework.boot.web.servlet.ServletRegistrationBean" id="hystrixservlet">
+        <property name="name" value="HystrixServlet"/>
+        <property name="servlet" ref="hystrixEventStreamServlet"/>
+        <property name="urlMappings" value="/hystrix.stream"/>
+    </bean>
+    <camelContext id="context1" xmlns="http://camel.apache.org/schema/spring">
+        <restConfiguration apiContextPath="/openapi.json" component="servlet"/>
+        <rest enableCORS="true" id="rest1" path="/">
+            <get id="openapi.json" produces="application/json" uri="openapi.json">
+                <description>Gets the openapi document for this service</description>
+                <route id="rest1-route1">
+                    <setHeader headerName="Exchange.CONTENT_TYPE" id="setHeader-route1">
+                        <constant>application/vnd.oai.openapi+json</constant>
+                    </setHeader>
+                    <setBody id="setBody-route1">
+                        <simple>resource:classpath:openapi-spec.json</simple>
+                    </setBody>
+                </route>
+            </get>
+        </rest>
+        <rest bindingMode="json" enableCORS="true" id="rest-8d179769-5395-472c-ab84-7d880406b33c">
+            <get id="alertUser" uri="/maingateway/profile/{id}">
+                <description>Send the alert to user by providing user id and alert type</description>
+                <param dataType="string" description="user id number"
+                    name="id" required="true" type="path"/>
+                <param dataType="string" description="The Type of alert"
+                    name="alertType" required="true" type="header"/>
+                <to uri="direct:alertUser"/>
+            </get>
+        </rest>
+        <route id="gateway">
+            <from id="_to1" uri="direct:alertUser"/>
+            <removeHeaders id="_removeHeaders1" pattern="Camel*"/>
+            <setHeader headerName="CamelHttpMethod" id="_setHeader1">
+                <constant>GET</constant>
+            </setHeader>
+            <hystrix id="_hystrix5">
+                <hystrixConfiguration
+                    circuitBreakerSleepWindowInMilliseconds="10000" executionTimeoutInMilliseconds="5000"/>
+                <recipientList id="_userservice">
+                    <simple>http://fuse-user-service:8080/cicd/users/profile/${header.id}?bridgeEndpoint=true</simple>
+                </recipientList>
+                <unmarshal id="_unmarshal1">
+                    <json library="Jackson"/>
+                </unmarshal>
+                <setBody id="_setBody1">
+                    <simple>{"alertType":"${header.alerttype}","firstName":"${body['firstName']}","phone":"${body['phone']}","addr":"${body['addr']}","lastName":"${body['lastName']}","email":"${body['email']}"}</simple>
+                </setBody>
+                <setHeader headerName="CamelHttpMethod" id="_setHeader3">
+                    <constant>POST</constant>
+                </setHeader>
+                <recipientList id="_alertservice">
+                    <simple>http://fuse-alert-service:8080/cicd/alerts?bridgeEndpoint=true</simple>
+                </recipientList>
+                <unmarshal id="_unmarshal2">
+                    <json library="Jackson"/>
+                </unmarshal>
+                <setBody id="_setBody02">
+                    <simple>Email status response :${body}</simple>
+                </setBody>
+                <onFallback id="_onFallback2">
+                    <to id="_handelerro01" uri="direct:doNoresponse"/>
+                </onFallback>
+            </hystrix>
+        </route>
+        <route id="noresponseroute">
+            <from id="noresponse" uri="direct:doNoresponse"/>
+            <log id="_log10" message="Fallback because backend services not responding"/>
+            <setHeader headerName="Exchange.HTTP_RESPONSE_CODE" id="_setHeader2">
+                <constant>503</constant>
+            </setHeader>
+            <setBody id="_setBody3">
+                <constant>"End Service not available try again later"</constant>
+            </setBody>
+        </route>
+        <route id="logoroute">
+            <from id="logostarts" uri="direct:getlogo"/>
+            <log id="_log13" message="Get Logo color"/>
+            <setBody id="_setBody5">
+                <constant>Red Hat</constant>
+            </setBody>
+        </route>
+    </camelContext>
+</beans>
